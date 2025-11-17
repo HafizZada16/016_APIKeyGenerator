@@ -1,12 +1,12 @@
-const pool = require('../config/database');
-const bcrypt = require('bcryptjs');
+const { Admin } = require('../models');
 
 // Get all admins
 const getAllAdmins = async (req, res) => {
     try {
-        const [admins] = await pool.execute(
-            'SELECT id, email, created_at, updated_at FROM admin'
-        );
+        const admins = await Admin.findAll({
+            attributes: ['id', 'email', 'created_at', 'updated_at'],
+            order: [['created_at', 'DESC']]
+        });
         
         res.json({
             success: true,
@@ -27,12 +27,11 @@ const getAllAdmins = async (req, res) => {
 const getAdminById = async (req, res) => {
     try {
         const { id } = req.params;
-        const [admins] = await pool.execute(
-            'SELECT id, email, created_at, updated_at FROM admin WHERE id = ?',
-            [id]
-        );
+        const admin = await Admin.findByPk(id, {
+            attributes: ['id', 'email', 'created_at', 'updated_at']
+        });
         
-        if (admins.length === 0) {
+        if (!admin) {
             return res.status(404).json({
                 success: false,
                 message: 'Admin not found'
@@ -41,7 +40,7 @@ const getAdminById = async (req, res) => {
         
         res.json({
             success: true,
-            data: admins[0]
+            data: admin
         });
     } catch (error) {
         console.error('Error getting admin:', error);
@@ -66,24 +65,25 @@ const createAdmin = async (req, res) => {
         }
         
         // Hash password
+        const bcrypt = require('bcryptjs');
         const hashedPassword = await bcrypt.hash(password, 10);
         
-        const [result] = await pool.execute(
-            'INSERT INTO admin (email, password) VALUES (?, ?)',
-            [email, hashedPassword]
-        );
+        const admin = await Admin.create({
+            email,
+            password: hashedPassword
+        });
         
         res.status(201).json({
             success: true,
             message: 'Admin created successfully',
             data: {
-                id: result.insertId,
-                email: email
+                id: admin.id,
+                email: admin.email
             }
         });
     } catch (error) {
         console.error('Error creating admin:', error);
-        if (error.code === 'ER_DUP_ENTRY') {
+        if (error.name === 'SequelizeUniqueConstraintError') {
             return res.status(400).json({
                 success: false,
                 message: 'Email already exists'
@@ -103,33 +103,34 @@ const updateAdmin = async (req, res) => {
         const { id } = req.params;
         const { email, password } = req.body;
         
-        let updateFields = [];
-        let updateValues = [];
+        const admin = await Admin.findByPk(id);
+        
+        if (!admin) {
+            return res.status(404).json({
+                success: false,
+                message: 'Admin not found'
+            });
+        }
+        
+        const updateData = {};
         
         if (email) {
-            updateFields.push('email = ?');
-            updateValues.push(email);
+            updateData.email = email;
         }
         
         if (password) {
-            const hashedPassword = await bcrypt.hash(password, 10);
-            updateFields.push('password = ?');
-            updateValues.push(hashedPassword);
+            const bcrypt = require('bcryptjs');
+            updateData.password = await bcrypt.hash(password, 10);
         }
         
-        if (updateFields.length === 0) {
+        if (Object.keys(updateData).length === 0) {
             return res.status(400).json({
                 success: false,
                 message: 'No fields to update'
             });
         }
         
-        updateValues.push(id);
-        
-        await pool.execute(
-            `UPDATE admin SET ${updateFields.join(', ')} WHERE id = ?`,
-            updateValues
-        );
+        await admin.update(updateData);
         
         res.json({
             success: true,
@@ -137,7 +138,7 @@ const updateAdmin = async (req, res) => {
         });
     } catch (error) {
         console.error('Error updating admin:', error);
-        if (error.code === 'ER_DUP_ENTRY') {
+        if (error.name === 'SequelizeUniqueConstraintError') {
             return res.status(400).json({
                 success: false,
                 message: 'Email already exists'
@@ -156,17 +157,16 @@ const deleteAdmin = async (req, res) => {
     try {
         const { id } = req.params;
         
-        const [result] = await pool.execute(
-            'DELETE FROM admin WHERE id = ?',
-            [id]
-        );
+        const admin = await Admin.findByPk(id);
         
-        if (result.affectedRows === 0) {
+        if (!admin) {
             return res.status(404).json({
                 success: false,
                 message: 'Admin not found'
             });
         }
+        
+        await admin.destroy();
         
         res.json({
             success: true,
@@ -189,4 +189,3 @@ module.exports = {
     updateAdmin,
     deleteAdmin
 };
-
