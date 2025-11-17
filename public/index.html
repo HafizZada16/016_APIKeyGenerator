@@ -21,7 +21,14 @@
             <section class="generator-card">
                 <h2>Generate New API Key</h2>
                 <form id="apiKeyForm">
-                    <button type="submit" class="btn btn-primary">Generate API Key</button>
+                    <div class="form-group api-key-group">
+                        <label for="api_key_display">API Key</label>
+                        <div class="input-with-button">
+                            <input type="text" id="api_key_display" name="api_key_display" placeholder="Click 'Generate' to create a key" readonly>
+                            <button type="button" id="generateBtn" class="btn">Generate</button>
+                        </div>
+                    </div>
+
                     <div class="form-group">
                         <label for="first_name">First Name</label>
                         <input type="text" id="first_name" name="first_name" placeholder="Enter your first name" required>
@@ -34,17 +41,24 @@
                         <label for="email">Email</label>
                         <input type="email" id="email" name="email" placeholder="Enter your email" required>
                     </div>
+                    <button type="submit" class="btn btn-primary">Submit</button>
                 </form>
             </section>
             <section class="result-card" id="result" style="display: none;">
-                <h3>Your API Key:</h3>
-                <pre><code id="apiKey"></code></pre>
-                <p>Please save this key securely. You will not be able to see it again.</p>
+                <h3>Your API Key has been saved successfully!</h3>
+                <pre><code id="apiKeyResult"></code></pre>
+                <p>Please save this key securely. You will not be able to see it again after leaving this page.</p>
             </section>
         </div>
     </main>
 
     <script>
+        document.getElementById('generateBtn').addEventListener('click', function() {
+            // Generate a simple, non-secure placeholder key for display purposes.
+            const placeholderKey = 'ak_placeholder_' + [...Array(32)].map(() => Math.floor(Math.random() * 16).toString(16)).join('');
+            document.getElementById('api_key_display').value = placeholderKey;
+        });
+
         document.getElementById('apiKeyForm').addEventListener('submit', async function (event) {
             event.preventDefault();
 
@@ -52,8 +66,9 @@
             const lastName = document.getElementById('last_name').value;
             const email = document.getElementById('email').value;
             
-            // For now, this is just a placeholder.
-            // In a real application, you would send a request to your backend API.
+            // Hide previous result
+            document.getElementById('result').style.display = 'none';
+
             const response = await fetch('/api/apikey', {
                 method: 'POST',
                 headers: {
@@ -63,7 +78,6 @@
                     first_name: firstName,
                     last_name: lastName,
                     email: email,
-                    // You might want to set dates dynamically
                     start_date: new Date().toISOString().split('T')[0], 
                     last_date: new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString().split('T')[0],
                     status: 'active'
@@ -72,11 +86,14 @@
 
             const data = await response.json();
 
-            if (response.ok && data.key) {
-                document.getElementById('apiKey').textContent = data.key;
+            if (response.ok && data.data && data.data.key) {
+                // Update the display with the *actual* key from the server
+                const finalKey = data.data.key;
+                document.getElementById('api_key_display').value = finalKey;
+                document.getElementById('apiKeyResult').textContent = finalKey; // Also update the result card
                 document.getElementById('result').style.display = 'block';
             } else {
-                alert('Error generating API Key: ' + (data.message || 'Unknown error'));
+                alert('Error submitting data: ' + (data.message || 'Unknown error'));
             }
         });
     </script>
