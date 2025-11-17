@@ -19,7 +19,7 @@ const validateApiKey = async (req, res, next) => {
         const [apikeys] = await pool.execute(
             `SELECT 
                 a.id,
-                a.key,
+                a.\`key\`,
                 a.user_id,
                 a.start_date,
                 a.last_date,
@@ -116,7 +116,7 @@ const validateApiKeyEndpoint = async (req, res) => {
         const [apikeys] = await pool.execute(
             `SELECT 
                 a.id,
-                a.key,
+                a.\`key\`,
                 a.user_id,
                 a.start_date,
                 a.last_date,
