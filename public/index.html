@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Key Generator</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header>
+        <nav>
+            <div class="container">
+                <h1>API Key Management</h1>
+                <a href="/login" class="btn">Admin Login</a>
+            </div>
+        </nav>
+    </header>
+
+    <main>
+        <div class="container">
+            <section class="generator-card">
+                <h2>Generate New API Key</h2>
+                <form id="apiKeyForm">
+                    <div class="form-group">
+                        <label for="first_name">First Name</label>
+                        <input type="text" id="first_name" name="first_name" placeholder="Enter your first name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="last_name">Last Name</label>
+                        <input type="text" id="last_name" name="last_name" placeholder="Enter your last name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="email">Email</label>
+                        <input type="email" id="email" name="email" placeholder="Enter your email" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Generate API Key</button>
+                </form>
+            </section>
+            <section class="result-card" id="result" style="display: none;">
+                <h3>Your API Key:</h3>
+                <pre><code id="apiKey"></code></pre>
+                <p>Please save this key securely. You will not be able to see it again.</p>
+            </section>
+        </div>
+    </main>
+
+    <script>
+        document.getElementById('apiKeyForm').addEventListener('submit', async function (event) {
+            event.preventDefault();
+
+            const firstName = document.getElementById('first_name').value;
+            const lastName = document.getElementById('last_name').value;
+            const email = document.getElementById('email').value;
+            
+            // For now, this is just a placeholder.
+            // In a real application, you would send a request to your backend API.
+            const response = await fetch('/api/apikey', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    first_name: firstName,
+                    last_name: lastName,
+                    email: email,
+                    // You might want to set dates dynamically
+                    start_date: new Date().toISOString().split('T')[0], 
+                    last_date: new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString().split('T')[0],
+                    status: 'active'
+                }),
+            });
+
+            const data = await response.json();
+
+            if (response.ok && data.key) {
+                document.getElementById('apiKey').textContent = data.key;
+                document.getElementById('result').style.display = 'block';
+            } else {
+                alert('Error generating API Key: ' + (data.message || 'Unknown error'));
+            }
+        });
+    </script>
+</body>
+</html>
