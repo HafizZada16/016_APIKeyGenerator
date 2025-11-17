@@ -5,6 +5,118 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>API Key Generator</title>
     <link rel="stylesheet" href="style.css">
+    <style>
+        /* CSS untuk Modal Popup */
+        .modal {
+            display: none; /* Hidden by default */
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5); /* Black w/ opacity */
+            backdrop-filter: blur(4px); /* Efek blur di belakang */
+        }
+
+        .modal-content {
+            background-color: #fff;
+            margin: 10% auto;
+            padding: 0;
+            border-radius: 8px;
+            width: 90%;
+            max-width: 500px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            animation: slideDown 0.3s ease-out;
+            overflow: hidden;
+        }
+
+        @keyframes slideDown {
+            from { transform: translateY(-50px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        .modal-header {
+            background-color: #28a745;
+            color: white;
+            padding: 15px 20px;
+            text-align: center;
+        }
+
+        .modal-header h2 {
+            margin: 0;
+            font-size: 1.5rem;
+            color: white;
+        }
+
+        .modal-body {
+            padding: 20px 30px;
+        }
+
+        .overview-box {
+            background-color: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 6px;
+            padding: 15px;
+            margin: 20px 0;
+            text-align: left;
+        }
+
+        .overview-box p {
+            margin: 8px 0;
+            color: #555;
+            font-size: 0.95rem;
+            border-bottom: 1px dashed #eee;
+            padding-bottom: 5px;
+        }
+
+        .overview-box p:last-child {
+            border-bottom: none;
+        }
+
+        .overview-box strong {
+            color: #333;
+            display: inline-block;
+            width: 70px;
+        }
+
+        .api-key-container {
+            display: flex;
+            gap: 10px;
+            margin-top: 5px;
+            margin-bottom: 25px;
+        }
+
+        .api-key-container input {
+            flex-grow: 1;
+            padding: 10px;
+            background-color: #fff;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            color: #007bff;
+            font-family: monospace;
+            font-weight: bold;
+            font-size: 1rem;
+        }
+
+        .copy-btn {
+            background-color: #6c757d;
+            color: white;
+            border: none;
+            padding: 0 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .copy-btn:hover {
+            background-color: #5a6268;
+        }
+
+        .modal-footer {
+            padding: 0 30px 30px 30px;
+        }
+    </style>
 </head>
 <body>
     <header>
@@ -21,80 +133,213 @@
             <section class="generator-card">
                 <h2>Generate New API Key</h2>
                 <form id="apiKeyForm">
+                    <input type="hidden" id="generated_apikey_id" name="generated_apikey_id">
+
                     <div class="form-group api-key-group">
                         <label for="api_key_display">API Key</label>
                         <div class="input-with-button">
                             <input type="text" id="api_key_display" name="api_key_display" placeholder="Click 'Generate' to create a key" readonly>
                             <button type="button" id="generateBtn" class="btn">Generate</button>
                         </div>
+                        <small id="keyStatus" style="color: green; display: none; margin-top: 5px;">
+                            Key generated! Please fill in your details below to activate it.
+                        </small>
                     </div>
 
                     <div class="form-group">
                         <label for="first_name">First Name</label>
-                        <input type="text" id="first_name" name="first_name" placeholder="Enter your first name" required>
+                        <input type="text" id="first_name" name="first_name" placeholder="Enter your first name" required disabled>
                     </div>
                     <div class="form-group">
                         <label for="last_name">Last Name</label>
-                        <input type="text" id="last_name" name="last_name" placeholder="Enter your last name" required>
+                        <input type="text" id="last_name" name="last_name" placeholder="Enter your last name" required disabled>
                     </div>
                     <div class="form-group">
                         <label for="email">Email</label>
-                        <input type="email" id="email" name="email" placeholder="Enter your email" required>
+                        <input type="email" id="email" name="email" placeholder="Enter your email" required disabled>
                     </div>
-                    <button type="submit" class="btn btn-primary">Submit</button>
+                    
+                    <button type="submit" id="submitBtn" class="btn btn-primary" disabled>Submit & Activate Key</button>
                 </form>
-            </section>
-            <section class="result-card" id="result" style="display: none;">
-                <h3>Your API Key has been saved successfully!</h3>
-                <pre><code id="apiKeyResult"></code></pre>
-                <p>Please save this key securely. You will not be able to see it again after leaving this page.</p>
             </section>
         </div>
     </main>
 
+    <div id="successModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>🎉 Activation Successful!</h2>
+            </div>
+            <div class="modal-body">
+                <p style="text-align: center; color: #666;">Your API Key is now active and linked to your account.</p>
+                
+                <div class="overview-box">
+                    <p><strong>Name</strong> : <span id="modalName"></span></p>
+                    <p><strong>Email</strong> : <span id="modalEmail"></span></p>
+                </div>
+
+                <label style="font-weight: bold; display: block; margin-bottom: 5px; text-align: left;">Your API Key:</label>
+                <div class="api-key-container">
+                    <input type="text" id="modalApiKey" readonly>
+                    <button type="button" id="copyKeyBtn" class="copy-btn">Copy</button>
+                </div>
+            </div>
+            
+            <div class="modal-footer">
+                <button id="modalOkBtn" class="btn btn-primary" style="width: 100%;">OK, Done</button>
+            </div>
+        </div>
+    </div>
+
     <script>
-        document.getElementById('generateBtn').addEventListener('click', function() {
-            // Generate a simple, non-secure placeholder key for display purposes.
-            const placeholderKey = 'ak_placeholder_' + [...Array(32)].map(() => Math.floor(Math.random() * 16).toString(16)).join('');
-            document.getElementById('api_key_display').value = placeholderKey;
+        // DOM Elements
+        const generateBtn = document.getElementById('generateBtn');
+        const apiKeyDisplay = document.getElementById('api_key_display');
+        const apiKeyIdInput = document.getElementById('generated_apikey_id');
+        const submitBtn = document.getElementById('submitBtn');
+        
+        const firstNameInput = document.getElementById('first_name');
+        const lastNameInput = document.getElementById('last_name');
+        const emailInput = document.getElementById('email');
+        const userInputs = [firstNameInput, lastNameInput, emailInput];
+        const keyStatus = document.getElementById('keyStatus');
+
+        // Modal Elements
+        const modal = document.getElementById('successModal');
+        const modalName = document.getElementById('modalName');
+        const modalEmail = document.getElementById('modalEmail');
+        const modalApiKey = document.getElementById('modalApiKey');
+        const copyKeyBtn = document.getElementById('copyKeyBtn');
+        const modalOkBtn = document.getElementById('modalOkBtn');
+
+        // 1. GENERATE KEY
+        generateBtn.addEventListener('click', async function() {
+            try {
+                generateBtn.textContent = "Generating...";
+                generateBtn.disabled = true;
+
+                const response = await fetch('/api/apikey/generate-only', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    apiKeyDisplay.value = data.data.key;
+                    apiKeyIdInput.value = data.data.id;
+                    
+                    userInputs.forEach(input => input.disabled = false);
+                    submitBtn.disabled = false;
+                    
+                    keyStatus.style.display = 'block';
+                    generateBtn.textContent = "Generated";
+                } else {
+                    alert('Error: ' + data.message);
+                    generateBtn.disabled = false;
+                    generateBtn.textContent = "Generate";
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Failed to connect to server');
+                generateBtn.disabled = false;
+                generateBtn.textContent = "Generate";
+            }
         });
 
+        // 2. SUBMIT FORM
         document.getElementById('apiKeyForm').addEventListener('submit', async function (event) {
             event.preventDefault();
 
-            const firstName = document.getElementById('first_name').value;
-            const lastName = document.getElementById('last_name').value;
-            const email = document.getElementById('email').value;
+            const apiKeyId = apiKeyIdInput.value;
+            if (!apiKeyId) return;
+
+            const firstName = firstNameInput.value;
+            const lastName = lastNameInput.value;
+            const email = emailInput.value;
+            const currentKey = apiKeyDisplay.value;
             
-            // Hide previous result
-            document.getElementById('result').style.display = 'none';
+            submitBtn.textContent = "Activating...";
+            submitBtn.disabled = true;
 
-            const response = await fetch('/api/apikey', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    first_name: firstName,
-                    last_name: lastName,
-                    email: email,
-                    start_date: new Date().toISOString().split('T')[0], 
-                    last_date: new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString().split('T')[0],
-                    status: 'active'
-                }),
-            });
+            try {
+                const response = await fetch('/api/apikey/associate-user', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        apikey_id: apiKeyId,
+                        first_name: firstName,
+                        last_name: lastName,
+                        email: email
+                    }),
+                });
 
-            const data = await response.json();
+                const data = await response.json();
 
-            if (response.ok && data.data && data.data.key) {
-                // Update the display with the *actual* key from the server
-                const finalKey = data.data.key;
-                document.getElementById('api_key_display').value = finalKey;
-                document.getElementById('apiKeyResult').textContent = finalKey; // Also update the result card
-                document.getElementById('result').style.display = 'block';
-            } else {
-                alert('Error submitting data: ' + (data.message || 'Unknown error'));
+                if (response.ok && data.success) {
+                    // ISI DATA KE MODAL
+                    modalName.textContent = `${firstName} ${lastName}`;
+                    modalEmail.textContent = email;
+                    modalApiKey.value = currentKey;
+
+                    // TAMPILKAN MODAL
+                    modal.style.display = "block";
+                    
+                } else {
+                    alert('Error: ' + (data.message || 'Unknown error'));
+                    submitBtn.textContent = "Submit & Activate Key";
+                    submitBtn.disabled = false;
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Failed to submit data');
+                submitBtn.textContent = "Submit & Activate Key";
+                submitBtn.disabled = false;
             }
+        });
+
+        // 3. TOMBOL COPY
+        copyKeyBtn.addEventListener('click', function() {
+            // Select text
+            modalApiKey.select();
+            modalApiKey.setSelectionRange(0, 99999); // Untuk mobile
+
+            // Copy command
+            navigator.clipboard.writeText(modalApiKey.value).then(() => {
+                const originalText = copyKeyBtn.textContent;
+                copyKeyBtn.textContent = "Copied!";
+                copyKeyBtn.style.backgroundColor = "#28a745";
+                
+                setTimeout(() => {
+                    copyKeyBtn.textContent = originalText;
+                    copyKeyBtn.style.backgroundColor = ""; // Reset ke CSS default
+                }, 2000);
+            }).catch(err => {
+                console.error('Gagal copy', err);
+            });
+        });
+
+        // 4. TOMBOL OK (RESET SEMUA)
+        modalOkBtn.addEventListener('click', function() {
+            // Tutup Modal
+            modal.style.display = "none";
+
+            // Reset Inputan
+            apiKeyDisplay.value = '';
+            apiKeyIdInput.value = '';
+            firstNameInput.value = '';
+            lastNameInput.value = '';
+            emailInput.value = '';
+
+            // Reset State Tombol & Input
+            userInputs.forEach(input => input.disabled = true);
+            submitBtn.textContent = "Submit & Activate Key";
+            submitBtn.disabled = true;
+            
+            generateBtn.textContent = "Generate";
+            generateBtn.disabled = false;
+            
+            keyStatus.style.display = 'none';
         });
     </script>
 </body>

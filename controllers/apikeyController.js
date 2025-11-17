@@ -161,11 +161,6 @@ const createApiKey = async (req, res) => {
       status: status || "active",
     });
 
-    // Update user.apikey dengan API key terbaru
-    await user.update({
-      apikey: apiKey,
-    });
-
     res.status(201).json({
       success: true,
       message: "API key created successfully",
@@ -336,13 +331,12 @@ const associateUser = async (req, res) => {
     let user = await User.findOne({ where: { email } });
 
     if (user) {
-      await user.update({ first_name, last_name, apikey: apikey.key });
+      await user.update({ first_name, last_name });
     } else {
       user = await User.create({
         first_name,
         last_name,
         email,
-        apikey: apikey.key,
       });
     }
 
