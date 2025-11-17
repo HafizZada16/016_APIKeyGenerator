@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .dashboard-container { max-width: 1000px; margin: 0 auto; padding: 20px; }
+        .user-card {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .user-header {
+            display: flex;
+            justify-content: space-between;
+            border-bottom: 2px solid #f0f0f0;
+            padding-bottom: 10px;
+            margin-bottom: 15px;
+        }
+        .user-header h3 { margin: 0; color: #333; }
+        .user-email { color: #666; }
+        
+        /* Table Styles */
+        .key-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        .key-table th, .key-table td {
+            text-align: left;
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+            font-size: 0.9rem;
+        }
+        .key-table th { background-color: #f8f9fa; color: #555; }
+        
+        /* Badges */
+        .badge { padding: 4px 8px; border-radius: 12px; font-size: 0.8rem; font-weight: bold; }
+        .badge-active { background: #d4edda; color: #155724; }
+        .badge-inactive { background: #fff3cd; color: #856404; }
+        .badge-expired { background: #f8d7da; color: #721c24; }
+        
+        .no-keys { font-style: italic; color: #999; text-align: center; padding: 10px; }
+        .code-key { font-family: monospace; background: #eee; padding: 2px 5px; border-radius: 4px; }
+        
+        .logout-btn { background-color: #dc3545; }
+        .logout-btn:hover { background-color: #c82333; }
+    </style>
+</head>
+<body>
+    <header>
+        <nav>
+            <div class="container">
+                <h1>Admin Dashboard</h1>
+                <div>
+                    <span id="adminName" style="margin-right: 15px; font-weight: bold;"></span>
+                    <button id="logoutBtn" class="btn logout-btn">Logout</button>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <main>
+        <div class="dashboard-container">
+            <h2>User Management & API Keys</h2>
+            <div id="usersList">
+                <p style="text-align:center;">Loading data...</p>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // Cek Login Sederhana
+        const adminData = localStorage.getItem('adminData');
+        if (!adminData) {
+            window.location.href = '/login';
+        } else {
+            const admin = JSON.parse(adminData);
+            document.getElementById('adminName').textContent = `Admin: ${admin.email}`;
+        }
+
+        // Logout
+        document.getElementById('logoutBtn').addEventListener('click', () => {
+            localStorage.removeItem('adminData');
+            window.location.href = '/login';
+        });
+
+        // Fetch Data Users & Keys
+        async function loadUsers() {
+            try {
+                const response = await fetch('/api/user');
+                const data = await response.json();
+                const container = document.getElementById('usersList');
+                container.innerHTML = '';
+
+                if (data.data.length === 0) {
+                    container.innerHTML = '<p>No users found.</p>';
+                    return;
+                }
+
+                data.data.forEach(user => {
+                    // Render User Card
+                    const card = document.createElement('div');
+                    card.className = 'user-card';
+                    
+                    let keysHtml = '';
+                    
+                    // Render List Key (One-to-Many Logic)
+                    if (user.apikeys && user.apikeys.length > 0) {
+                        keysHtml = `
+                            <table class="key-table">
+                                <thead>
+                                    <tr>
+                                        <th>API Key</th>
+                                        <th>Status</th>
+                                        <th>Active Date</th>
+                                        <th>Expired Date</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${user.apikeys.map(apikey => `
+                                        <tr>
+                                            <td><span class="code-key">${apikey.key}</span></td>
+                                            <td><span class="badge badge-${apikey.status}">${apikey.status.toUpperCase()}</span></td>
+                                            <td>${apikey.start_date}</td>
+                                            <td>${apikey.outofdate}</td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        `;
+                    } else {
+                        keysHtml = '<div class="no-keys">No API Keys generated yet.</div>';
+                    }
+
+                    card.innerHTML = `
+                        <div class="user-header">
+                            <div>
+                                <h3>${user.first_name} ${user.last_name}</h3>
+                                <span class="user-email">${user.email}</span>
+                            </div>
+                            <div style="text-align:right;">
+                                <small>Joined: ${new Date(user.created_at).toLocaleDateString()}</small>
+                            </div>
+                        </div>
+                        ${keysHtml}
+                    `;
+                    
+                    container.appendChild(card);
+                });
+
+            } catch (error) {
+                console.error('Error:', error);
+                document.getElementById('usersList').innerHTML = '<p style="color:red">Error loading data.</p>';
+            }
+        }
+
+        // Load data saat halaman dibuka
+        loadUsers();
+    </script>
+</body>
+</html>

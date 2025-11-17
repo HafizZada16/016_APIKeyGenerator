@@ -1,7 +1,8 @@
 const { User, Apikey } = require("../models");
 const { Sequelize } = require("sequelize");
 
-// Get all users
+// Get all users (Updated for Admin Dashboard)
+// Menampilkan list user beserta data API Key mereka
 const getAllUsers = async (req, res) => {
   try {
     const users = await User.findAll({
@@ -12,37 +13,31 @@ const getAllUsers = async (req, res) => {
         "email",
         "created_at",
         "updated_at",
-        [Sequelize.fn("COUNT", Sequelize.col("apikeys.id")), "total_apikeys"],
       ],
       include: [
         {
           model: Apikey,
           as: "apikeys",
-          attributes: [],
-          required: false,
+          attributes: [
+            "id",
+            "key",
+            "status",
+            "start_date",
+            "last_date",
+            "outofdate",
+          ],
+          // Urutkan key dari yang terbaru
+          order: [["created_at", "DESC"]],
         },
       ],
-      group: ["user.id"],
+      // Urutkan user dari yang terbaru mendaftar
       order: [["created_at", "DESC"]],
-      raw: true,
-      nest: true,
     });
-
-    // Format hasil untuk menghilangkan nested structure
-    const formattedUsers = users.map((user) => ({
-      id: user.id,
-      first_name: user.first_name,
-      last_name: user.last_name,
-      email: user.email,
-      created_at: user.created_at,
-      updated_at: user.updated_at,
-      total_apikeys: parseInt(user.total_apikeys) || 0,
-    }));
 
     res.json({
       success: true,
-      data: formattedUsers,
-      count: formattedUsers.length,
+      data: users,
+      count: users.length,
     });
   } catch (error) {
     console.error("Error getting users:", error);
@@ -55,6 +50,7 @@ const getAllUsers = async (req, res) => {
 };
 
 // Get user by ID
+// Menampilkan detail user dan semua history API Key mereka
 const getUserById = async (req, res) => {
   try {
     const { id } = req.params;

@@ -27,6 +27,17 @@ app.get("/", (req, res) => {
   res.sendFile(__dirname + "/public/index.html");
 });
 
+// Route for Login Page
+app.get("/login", (req, res) => {
+  res.sendFile(__dirname + "/public/login.html");
+});
+
+// Route for Admin Dashboard
+app.get("/admin", (req, res) => {
+  // (Idealnya di sini ada middleware cek login, tapi untuk sekarang kita handle di frontend)
+  res.sendFile(__dirname + "/public/admin.html");
+});
+
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error(err.stack);
