@@ -13,7 +13,7 @@ const getAllApiKeys = async (req, res) => {
             `SELECT 
                 a.id,
                 a.user_id,
-                a.key,
+                a.\`key\`,
                 a.start_date,
                 a.last_date,
                 a.outofdate,
@@ -51,7 +51,7 @@ const getApiKeyById = async (req, res) => {
             `SELECT 
                 a.id,
                 a.user_id,
-                a.key,
+                a.\`key\`,
                 a.start_date,
                 a.last_date,
                 a.outofdate,
@@ -152,7 +152,7 @@ const createApiKey = async (req, res) => {
         
         // Buat API key
         const [apikeyResult] = await pool.execute(
-            `INSERT INTO apikey (user_id, key, start_date, last_date, outofdate, status) 
+            `INSERT INTO apikey (user_id, \`key\`, start_date, last_date, outofdate, status) 
              VALUES (?, ?, ?, ?, ?, ?)`,
             [userId, apiKey, start_date, last_date, outofdate, status || 'active']
         );

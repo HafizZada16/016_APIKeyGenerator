@@ -20,10 +20,6 @@ async function testConnection() {
         console.log('📊 Current database:', rows[0].current_db);
         
         // Check if tables exist
-        const [tables] = await connection.execute(
-            "SHOW TABLES LIKE 'user' OR SHOW TABLES LIKE 'admin' OR SHOW TABLES LIKE 'apikey'"
-        );
-        
         const [allTables] = await connection.execute('SHOW TABLES');
         console.log('📋 Available tables:', allTables.map(t => Object.values(t)[0]));
         
