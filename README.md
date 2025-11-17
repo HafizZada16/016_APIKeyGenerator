@@ -30,7 +30,7 @@ npm install
    DB_USER=root
    DB_PASSWORD=
    DB_NAME=project_api
-   DB_PORT=3306
+   DB_PORT=3308
    PORT=3000
    ```
 
