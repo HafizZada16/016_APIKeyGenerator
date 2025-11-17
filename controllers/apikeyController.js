@@ -1,5 +1,6 @@
-const pool = require('../config/database');
+const { User, Apikey } = require('../models');
 const crypto = require('crypto');
+const { Op } = require('sequelize');
 
 // Generate unique API key
 const generateApiKey = () => {
@@ -9,24 +10,25 @@ const generateApiKey = () => {
 // Get all API keys
 const getAllApiKeys = async (req, res) => {
     try {
-        const [apikeys] = await pool.execute(
-            `SELECT 
-                a.id,
-                a.user_id,
-                a.\`key\`,
-                a.start_date,
-                a.last_date,
-                a.outofdate,
-                a.status,
-                a.created_at,
-                a.updated_at,
-                u.first_name,
-                u.last_name,
-                u.email
-            FROM apikey a
-            INNER JOIN user u ON a.user_id = u.id
-            ORDER BY a.created_at DESC`
-        );
+        const apikeys = await Apikey.findAll({
+            attributes: [
+                'id',
+                'user_id',
+                'key',
+                'start_date',
+                'last_date',
+                'outofdate',
+                'status',
+                'created_at',
+                'updated_at'
+            ],
+            include: [{
+                model: User,
+                as: 'user',
+                attributes: ['first_name', 'last_name', 'email']
+            }],
+            order: [['created_at', 'DESC']]
+        });
         
         res.json({
             success: true,
@@ -47,27 +49,26 @@ const getAllApiKeys = async (req, res) => {
 const getApiKeyById = async (req, res) => {
     try {
         const { id } = req.params;
-        const [apikeys] = await pool.execute(
-            `SELECT 
-                a.id,
-                a.user_id,
-                a.\`key\`,
-                a.start_date,
-                a.last_date,
-                a.outofdate,
-                a.status,
-                a.created_at,
-                a.updated_at,
-                u.first_name,
-                u.last_name,
-                u.email
-            FROM apikey a
-            INNER JOIN user u ON a.user_id = u.id
-            WHERE a.id = ?`,
-            [id]
-        );
+        const apikey = await Apikey.findByPk(id, {
+            attributes: [
+                'id',
+                'user_id',
+                'key',
+                'start_date',
+                'last_date',
+                'outofdate',
+                'status',
+                'created_at',
+                'updated_at'
+            ],
+            include: [{
+                model: User,
+                as: 'user',
+                attributes: ['first_name', 'last_name', 'email']
+            }]
+        });
         
-        if (apikeys.length === 0) {
+        if (!apikey) {
             return res.status(404).json({
                 success: false,
                 message: 'API key not found'
@@ -76,7 +77,7 @@ const getApiKeyById = async (req, res) => {
         
         res.json({
             success: true,
-            data: apikeys[0]
+            data: apikey
         });
     } catch (error) {
         console.error('Error getting API key:', error);
@@ -125,50 +126,46 @@ const createApiKey = async (req, res) => {
         const outofdate = last_date; // outofdate sama dengan last_date
         
         // Cek apakah user sudah ada berdasarkan email
-        const [existingUsers] = await pool.execute(
-            'SELECT id FROM user WHERE email = ?',
-            [email]
-        );
+        let user = await User.findOne({
+            where: { email }
+        });
         
-        let userId;
-        
-        if (existingUsers.length > 0) {
-            // User sudah ada, gunakan ID yang ada
-            userId = existingUsers[0].id;
-            
-            // Update user info jika perlu
-            await pool.execute(
-                'UPDATE user SET first_name = ?, last_name = ? WHERE id = ?',
-                [first_name, last_name, userId]
-            );
+        if (user) {
+            // User sudah ada, update user info
+            await user.update({
+                first_name,
+                last_name
+            });
         } else {
             // User belum ada, buat user baru
-            const [userResult] = await pool.execute(
-                'INSERT INTO user (first_name, last_name, email) VALUES (?, ?, ?)',
-                [first_name, last_name, email]
-            );
-            userId = userResult.insertId;
+            user = await User.create({
+                first_name,
+                last_name,
+                email
+            });
         }
         
         // Buat API key
-        const [apikeyResult] = await pool.execute(
-            `INSERT INTO apikey (user_id, \`key\`, start_date, last_date, outofdate, status) 
-             VALUES (?, ?, ?, ?, ?, ?)`,
-            [userId, apiKey, start_date, last_date, outofdate, status || 'active']
-        );
+        const apikey = await Apikey.create({
+            user_id: user.id,
+            key: apiKey,
+            start_date,
+            last_date,
+            outofdate,
+            status: status || 'active'
+        });
         
         // Update user.apikey dengan API key terbaru
-        await pool.execute(
-            'UPDATE user SET apikey = ? WHERE id = ?',
-            [apiKey, userId]
-        );
+        await user.update({
+            apikey: apiKey
+        });
         
         res.status(201).json({
             success: true,
             message: 'API key created successfully',
             data: {
-                id: apikeyResult.insertId,
-                user_id: userId,
+                id: apikey.id,
+                user_id: user.id,
                 first_name,
                 last_name,
                 email,
@@ -181,7 +178,7 @@ const createApiKey = async (req, res) => {
         });
     } catch (error) {
         console.error('Error creating API key:', error);
-        if (error.code === 'ER_DUP_ENTRY') {
+        if (error.name === 'SequelizeUniqueConstraintError') {
             return res.status(400).json({
                 success: false,
                 message: 'API key already exists (unlikely, but possible)'
@@ -209,17 +206,16 @@ const updateApiKeyStatus = async (req, res) => {
             });
         }
         
-        const [result] = await pool.execute(
-            'UPDATE apikey SET status = ? WHERE id = ?',
-            [status, id]
-        );
+        const apikey = await Apikey.findByPk(id);
         
-        if (result.affectedRows === 0) {
+        if (!apikey) {
             return res.status(404).json({
                 success: false,
                 message: 'API key not found'
             });
         }
+        
+        await apikey.update({ status });
         
         res.json({
             success: true,
@@ -240,17 +236,16 @@ const deleteApiKey = async (req, res) => {
     try {
         const { id } = req.params;
         
-        const [result] = await pool.execute(
-            'DELETE FROM apikey WHERE id = ?',
-            [id]
-        );
+        const apikey = await Apikey.findByPk(id);
         
-        if (result.affectedRows === 0) {
+        if (!apikey) {
             return res.status(404).json({
                 success: false,
                 message: 'API key not found'
             });
         }
+        
+        await apikey.destroy();
         
         res.json({
             success: true,
@@ -273,4 +268,3 @@ module.exports = {
     updateApiKeyStatus,
     deleteApiKey
 };
-

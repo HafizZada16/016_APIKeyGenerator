@@ -1,28 +1,48 @@
-const pool = require('../config/database');
+const { User, Apikey } = require('../models');
+const { Sequelize } = require('sequelize');
 
 // Get all users
 const getAllUsers = async (req, res) => {
     try {
-        const [users] = await pool.execute(
-            `SELECT 
-                u.id, 
-                u.first_name, 
-                u.last_name, 
-                u.email, 
-                u.apikey,
-                u.created_at, 
-                u.updated_at,
-                COUNT(a.id) as total_apikeys
-            FROM user u
-            LEFT JOIN apikey a ON u.id = a.user_id
-            GROUP BY u.id
-            ORDER BY u.created_at DESC`
-        );
+        const users = await User.findAll({
+            attributes: [
+                'id',
+                'first_name',
+                'last_name',
+                'email',
+                'apikey',
+                'created_at',
+                'updated_at',
+                [Sequelize.fn('COUNT', Sequelize.col('apikeys.id')), 'total_apikeys']
+            ],
+            include: [{
+                model: Apikey,
+                as: 'apikeys',
+                attributes: [],
+                required: false
+            }],
+            group: ['user.id'],
+            order: [['created_at', 'DESC']],
+            raw: true,
+            nest: true
+        });
+        
+        // Format hasil untuk menghilangkan nested structure
+        const formattedUsers = users.map(user => ({
+            id: user.id,
+            first_name: user.first_name,
+            last_name: user.last_name,
+            email: user.email,
+            apikey: user.apikey,
+            created_at: user.created_at,
+            updated_at: user.updated_at,
+            total_apikeys: parseInt(user.total_apikeys) || 0
+        }));
         
         res.json({
             success: true,
-            data: users,
-            count: users.length
+            data: formattedUsers,
+            count: formattedUsers.length
         });
     } catch (error) {
         console.error('Error getting users:', error);
@@ -38,49 +58,42 @@ const getAllUsers = async (req, res) => {
 const getUserById = async (req, res) => {
     try {
         const { id } = req.params;
-        const [users] = await pool.execute(
-            `SELECT 
-                u.id, 
-                u.first_name, 
-                u.last_name, 
-                u.email, 
-                u.apikey,
-                u.created_at, 
-                u.updated_at
-            FROM user u
-            WHERE u.id = ?`,
-            [id]
-        );
+        const user = await User.findByPk(id, {
+            attributes: [
+                'id',
+                'first_name',
+                'last_name',
+                'email',
+                'apikey',
+                'created_at',
+                'updated_at'
+            ],
+            include: [{
+                model: Apikey,
+                as: 'apikeys',
+                attributes: [
+                    'id',
+                    'key',
+                    'start_date',
+                    'last_date',
+                    'outofdate',
+                    'status',
+                    'created_at'
+                ],
+                order: [['created_at', 'DESC']]
+            }]
+        });
         
-        if (users.length === 0) {
+        if (!user) {
             return res.status(404).json({
                 success: false,
                 message: 'User not found'
             });
         }
         
-        // Get user's API keys
-        const [apikeys] = await pool.execute(
-            `SELECT 
-                id, 
-                key, 
-                start_date, 
-                last_date, 
-                outofdate, 
-                status,
-                created_at
-            FROM apikey 
-            WHERE user_id = ?
-            ORDER BY created_at DESC`,
-            [id]
-        );
-        
         res.json({
             success: true,
-            data: {
-                ...users[0],
-                apikeys: apikeys
-            }
+            data: user
         });
     } catch (error) {
         console.error('Error getting user:', error);
@@ -96,4 +109,3 @@ module.exports = {
     getAllUsers,
     getUserById
 };
-
