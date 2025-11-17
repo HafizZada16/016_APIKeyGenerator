@@ -1,4 +1,4 @@
-const pool = require('../config/database');
+const { Apikey, User } = require('../models');
 
 // Middleware untuk validasi API Key
 // Digunakan untuk memvalidasi apakah API key valid atau tidak
@@ -16,33 +16,22 @@ const validateApiKey = async (req, res, next) => {
         }
         
         // Cari API key di database
-        const [apikeys] = await pool.execute(
-            `SELECT 
-                a.id,
-                a.\`key\`,
-                a.user_id,
-                a.start_date,
-                a.last_date,
-                a.outofdate,
-                a.status,
-                u.first_name,
-                u.last_name,
-                u.email
-            FROM apikey a
-            INNER JOIN user u ON a.user_id = u.id
-            WHERE a.key = ?`,
-            [apiKey]
-        );
+        const apikeyData = await Apikey.findOne({
+            where: { key: apiKey },
+            include: [{
+                model: User,
+                as: 'user',
+                attributes: ['id', 'first_name', 'last_name', 'email']
+            }]
+        });
         
-        if (apikeys.length === 0) {
+        if (!apikeyData) {
             return res.status(401).json({
                 success: false,
                 valid: false,
                 message: 'API key tidak valid / tidak ditemukan'
             });
         }
-        
-        const apikeyData = apikeys[0];
         
         // Cek status API key
         if (apikeyData.status === 'inactive' || apikeyData.status === 'expired') {
@@ -59,10 +48,7 @@ const validateApiKey = async (req, res, next) => {
         
         if (today > outofdate) {
             // Update status menjadi expired
-            await pool.execute(
-                'UPDATE apikey SET status = ? WHERE id = ?',
-                ['expired', apikeyData.id]
-            );
+            await apikeyData.update({ status: 'expired' });
             
             return res.status(403).json({
                 success: false,
@@ -74,10 +60,10 @@ const validateApiKey = async (req, res, next) => {
         // API key valid
         // Attach user info ke request untuk digunakan di controller
         req.user = {
-            id: apikeyData.user_id,
-            first_name: apikeyData.first_name,
-            last_name: apikeyData.last_name,
-            email: apikeyData.email
+            id: apikeyData.user.id,
+            first_name: apikeyData.user.first_name,
+            last_name: apikeyData.user.last_name,
+            email: apikeyData.user.email
         };
         req.apikey = {
             id: apikeyData.id,
@@ -113,25 +99,16 @@ const validateApiKeyEndpoint = async (req, res) => {
             });
         }
         
-        const [apikeys] = await pool.execute(
-            `SELECT 
-                a.id,
-                a.\`key\`,
-                a.user_id,
-                a.start_date,
-                a.last_date,
-                a.outofdate,
-                a.status,
-                u.first_name,
-                u.last_name,
-                u.email
-            FROM apikey a
-            INNER JOIN user u ON a.user_id = u.id
-            WHERE a.key = ?`,
-            [apiKey]
-        );
+        const apikeyData = await Apikey.findOne({
+            where: { key: apiKey },
+            include: [{
+                model: User,
+                as: 'user',
+                attributes: ['id', 'first_name', 'last_name', 'email']
+            }]
+        });
         
-        if (apikeys.length === 0) {
+        if (!apikeyData) {
             return res.json({
                 success: false,
                 valid: false,
@@ -139,7 +116,6 @@ const validateApiKeyEndpoint = async (req, res) => {
             });
         }
         
-        const apikeyData = apikeys[0];
         const today = new Date();
         const outofdate = new Date(apikeyData.outofdate);
         
@@ -159,10 +135,7 @@ const validateApiKeyEndpoint = async (req, res) => {
         
         if (today > outofdate) {
             // Update status menjadi expired
-            await pool.execute(
-                'UPDATE apikey SET status = ? WHERE id = ?',
-                ['expired', apikeyData.id]
-            );
+            await apikeyData.update({ status: 'expired' });
             
             return res.json({
                 success: false,
@@ -184,10 +157,10 @@ const validateApiKeyEndpoint = async (req, res) => {
             data: {
                 key: apikeyData.key,
                 user: {
-                    id: apikeyData.user_id,
-                    first_name: apikeyData.first_name,
-                    last_name: apikeyData.last_name,
-                    email: apikeyData.email
+                    id: apikeyData.user.id,
+                    first_name: apikeyData.user.first_name,
+                    last_name: apikeyData.user.last_name,
+                    email: apikeyData.user.email
                 },
                 start_date: apikeyData.start_date,
                 last_date: apikeyData.last_date,
@@ -210,4 +183,3 @@ module.exports = {
     validateApiKey,
     validateApiKeyEndpoint
 };
-

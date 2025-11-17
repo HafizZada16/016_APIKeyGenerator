@@ -1,4 +1,4 @@
-const pool = require('../config/database');
+const { Admin } = require('../models');
 const bcrypt = require('bcryptjs');
 
 // Admin login
@@ -14,19 +14,17 @@ const adminLogin = async (req, res) => {
         }
         
         // Cari admin berdasarkan email
-        const [admins] = await pool.execute(
-            'SELECT id, email, password FROM admin WHERE email = ?',
-            [email]
-        );
+        const admin = await Admin.findOne({
+            where: { email },
+            attributes: ['id', 'email', 'password']
+        });
         
-        if (admins.length === 0) {
+        if (!admin) {
             return res.status(401).json({
                 success: false,
                 message: 'Invalid email or password'
             });
         }
-        
-        const admin = admins[0];
         
         // Verifikasi password
         const isPasswordValid = await bcrypt.compare(password, admin.password);
@@ -60,4 +58,3 @@ const adminLogin = async (req, res) => {
 module.exports = {
     adminLogin
 };
-
